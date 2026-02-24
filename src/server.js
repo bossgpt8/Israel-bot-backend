@@ -13,7 +13,7 @@ const {
 const pino = require('pino');
 const handler = require('./handler');
 const config = require('./config');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
 const server = http.createServer(app);
@@ -32,7 +32,7 @@ const Session = mongoose.model('Session', sessionSchema);
 const sessions = new Map(); // userId -> { sock, status }
 
 async function connectToWhatsApp(userId, res = null, pairingCode = false, phoneNumber = null) {
-  const sessionDir = path.join(__dirname, 'sessions', userId);
+  const sessionDir = path.join(__dirname, '../sessions', userId);
   if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
 
   const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
@@ -97,7 +97,7 @@ async function connectToWhatsApp(userId, res = null, pairingCode = false, phoneN
         res.json({ success: true, code, userId });
       }, 3000);
     } catch (err) {
-      res.status(500).json({ success: false, error: err.message });
+      if (!res.headersSent) res.status(500).json({ success: false, error: err.message });
     }
   }
 }
@@ -154,11 +154,15 @@ app.post('/disconnect', async (req, res) => {
 // Auto-load sessions
 async function loadSessions() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    const activeSessions = await Session.find();
-    for (const sess of activeSessions) {
-      console.log(`Auto-loading session: ${sess.userId}`);
-      connectToWhatsApp(sess.userId);
+    if (process.env.MONGODB_URI) {
+      await mongoose.connect(process.env.MONGODB_URI);
+      const activeSessions = await Session.find();
+      for (const sess of activeSessions) {
+        console.log(`Auto-loading session: ${sess.userId}`);
+        connectToWhatsApp(sess.userId);
+      }
+    } else {
+      console.warn('MONGODB_URI not set, skipping auto-load');
     }
   } catch (err) {
     console.error('Database connection failed', err);
@@ -166,7 +170,7 @@ async function loadSessions() {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   loadSessions();
 });
