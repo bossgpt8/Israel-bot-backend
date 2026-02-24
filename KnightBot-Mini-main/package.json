@@ -5,8 +5,9 @@
     "main": "index.js",
     "type": "commonjs",
     "scripts": {
-        "start": "node index.js",
-        "dev": "nodemon index.js",
+        "start": "node server.js",
+        "bot": "node index.js",
+        "dev": "nodemon server.js",
         "install:no-puppeteer": "PUPPETEER_SKIP_DOWNLOAD=true PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install"
     },
     "keywords": [
