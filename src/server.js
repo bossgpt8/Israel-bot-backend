@@ -247,6 +247,11 @@ app.post('/link/code', async (req, res) => {
   res.json({ success: true, message: "Pairing code requested" });
 });
 
+app.post('/link/status', (req, res) => {
+  const { userId } = req.body;
+  res.json(botManager.getStatus(userId || "default"));
+});
+
 app.get('/status', (req, res) => {
   const { userId } = req.query;
   res.json(botManager.getStatus(userId || "default"));
