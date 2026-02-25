@@ -252,6 +252,26 @@ app.get('/status', (req, res) => {
   res.json(botManager.getStatus(userId || "default"));
 });
 
+app.post('/send', async (req, res) => {
+  const { userId, to, message } = req.body;
+  if (!userId || !to || !message) {
+    return res.status(400).json({ error: 'userId, to, and message required' });
+  }
+  
+  const instance = botManager.getInstance(userId);
+  if (instance.status !== "online" || !instance.sock) {
+    return res.status(400).json({ error: 'Instance not online' });
+  }
+
+  try {
+    const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`;
+    await instance.sock.sendMessage(jid, { text: message });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/disconnect', async (req, res) => {
   const { userId } = req.body;
   await botManager.logout(userId || "default");
