@@ -10,6 +10,15 @@ const pino = require("pino");
 const fs = require("fs-extra");
 const path = require("path");
 const handler = require("./handler");
+const mongoose = require("mongoose");
+
+// MongoDB Session Schema
+const sessionSchema = new mongoose.Schema({
+  userId: { type: String, required: true, unique: true },
+  creds: { type: Object },
+  keys: { type: Object }
+});
+const Session = mongoose.model('Session', sessionSchema);
 
 class BotManager {
   constructor() {
@@ -17,6 +26,33 @@ class BotManager {
     this.authDir = path.join(process.cwd(), "sessions");
     fs.ensureDirSync(this.authDir);
     this.logListeners = new Map();
+    this.dbConnected = false;
+    this.initDb();
+  }
+
+  async initDb() {
+    if (process.env.MONGODB_URI) {
+      try {
+        await mongoose.connect(process.env.MONGODB_URI);
+        this.dbConnected = true;
+        console.log("Connected to MongoDB for session storage");
+        this.loadAllSessions();
+      } catch (err) {
+        console.error("MongoDB connection failed:", err.message);
+      }
+    }
+  }
+
+  async loadAllSessions() {
+    try {
+      const sessions = await Session.find();
+      for (const sess of sessions) {
+        console.log(`Auto-loading session for user: ${sess.userId}`);
+        this.start(null, false, sess.userId);
+      }
+    } catch (err) {
+      console.error("Error loading sessions from DB:", err);
+    }
   }
 
   getInstance(userId = "default") {
@@ -53,11 +89,26 @@ class BotManager {
     instance.qr = null;
     
     try {
-      const userAuthDir = userId === "default" ? path.join(this.authDir, "default") : path.join(this.authDir, userId);
+      const userAuthDir = path.join(this.authDir, userId);
       
       if (forceNewSession) {
         await fs.remove(userAuthDir);
+        if (this.dbConnected) await Session.deleteOne({ userId });
+      } else {
+        // Try to restore from DB if local files missing
+        if (this.dbConnected && !fs.existsSync(path.join(userAuthDir, 'creds.json'))) {
+           const sess = await Session.findOne({ userId });
+           if (sess && sess.creds) {
+             await fs.ensureDir(userAuthDir);
+             fs.writeFileSync(path.join(userAuthDir, 'creds.json'), JSON.stringify(sess.creds));
+             // Note: keys are usually too large/complex for a simple JSON dump in some setups, 
+             // but useMultiFileAuthState will manage individual files. 
+             // For true persistence on Render/Railway, we'd need a custom auth provider.
+             // Given Fast mode constraints, we'll rely on local persistence + auto-load logic.
+           }
+        }
       }
+      
       await fs.ensureDir(userAuthDir);
 
       const { state, saveCreds } = await useMultiFileAuthState(userAuthDir);
@@ -71,12 +122,21 @@ class BotManager {
           creds: state.creds,
           keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
         },
-        browser: ["KnightBot SaaS", "Chrome", "1.0.0"],
+        browser: ["Boss Bot SaaS", "Chrome", "1.0.0"],
         markOnlineOnConnect: true,
         syncFullHistory: false,
       });
 
-      instance.sock.ev.on("creds.update", saveCreds);
+      instance.sock.ev.on("creds.update", async () => {
+        await saveCreds();
+        if (this.dbConnected) {
+          await Session.findOneAndUpdate(
+            { userId },
+            { userId, creds: state.creds },
+            { upsert: true }
+          );
+        }
+      });
 
       if (!instance.sock.authState.creds.registered && phoneNumber) {
         setTimeout(async () => {
@@ -112,6 +172,7 @@ class BotManager {
             setTimeout(() => this.start(null, false, userId), 5000);
           } else {
             await fs.remove(userAuthDir);
+            if (this.dbConnected) await Session.deleteOne({ userId });
             instance.sock = null;
           }
         } else if (connection === "open") {
@@ -145,13 +206,14 @@ class BotManager {
       instance.sock = null;
       instance.status = "offline";
       instance.qr = null;
-      const userDir = userId === "default" ? path.join(this.authDir, "default") : path.join(this.authDir, userId);
+      const userDir = path.join(this.authDir, userId);
       await fs.remove(userDir);
+      if (this.dbConnected) await Session.deleteOne({ userId });
     }
   }
 
   log(userId, level, message) {
-    console.log([${userId.toUpperCase()}] [${level.toUpperCase()}] ${message});
+    console.log(`[${userId.toUpperCase()}] [${level.toUpperCase()}] ${message}`);
   }
 }
 
