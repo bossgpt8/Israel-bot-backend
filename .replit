@@ -29,8 +29,3 @@ args = "npm start"
 [[ports]]
 localPort = 3000
 externalPort = 80
-
-[deployment]
-build = ["sh", "-c", "npm install"]
-run = ["sh", "-c", "npm rún build"]
-deploymentTarget = "cloudrun"

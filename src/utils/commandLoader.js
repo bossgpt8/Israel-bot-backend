@@ -1,12 +1,17 @@
+/**
+ * Command Loader - Separate module to avoid circular dependencies
+ */
+
 const fs = require('fs');
 const path = require('path');
 
+// Load all commands
 const loadCommands = () => {
   const commands = new Map();
-  const commandsPath = path.join(__dirname, '../commands');
+  const commandsPath = path.join(__dirname, '..', 'commands');
   
   if (!fs.existsSync(commandsPath)) {
-    console.log('Commands directory not found:', commandsPath);
+    console.log('Commands directory not found');
     return commands;
   }
   
@@ -35,8 +40,8 @@ const loadCommands = () => {
     }
   });
   
-  console.log(`Loaded ${commands.size} commands`);
   return commands;
 };
 
 module.exports = { loadCommands };
+
