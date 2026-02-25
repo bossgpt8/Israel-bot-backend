@@ -17,7 +17,7 @@ class BotManager {
   constructor() {
     this.instances = new Map();
     this.maxReconnectAttempts = 5;
-    this.authDir = path.join(__dirname, "sessions");
+    this.authDir = path.join(process.cwd(), "sessions");
     fs.ensureDirSync(this.authDir);
   }
 
@@ -55,7 +55,7 @@ class BotManager {
     instance.qr = null;
     
     try {
-      const userAuthDir = path.join(this.authDir, userId);
+      const userAuthDir = userId === "default" ? this.authDir : path.join(this.authDir, userId);
       let sessionExists = false;
 
       if (!forceNewSession) {
@@ -190,7 +190,7 @@ class BotManager {
       instance.sock = null;
       instance.status = "offline";
       instance.qr = null;
-      const userDir = path.join(this.authDir, userId);
+      const userDir = userId === "default" ? this.authDir : path.join(this.authDir, userId);
       await fs.remove(userDir);
       this.log(userId, "info", "Logged out and session cleared.");
     }
