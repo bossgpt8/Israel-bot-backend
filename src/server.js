@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
@@ -8,6 +9,7 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const app = express();
 const server = http.createServer(app);
 
+app.use(cors());
 app.use(express.json());
 
 // API Routes
