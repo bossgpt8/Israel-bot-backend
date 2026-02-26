@@ -11,6 +11,7 @@ const fs = require("fs-extra");
 const path = require("path");
 const handler = require("./handler");
 const mongoose = require("mongoose");
+const { loadCommands } = require("./utils/commandLoader");
 
 // MongoDB Session Schema
 const sessionSchema = new mongoose.Schema({
@@ -27,6 +28,8 @@ class BotManager {
     fs.ensureDirSync(this.authDir);
     this.logListeners = new Map();
     this.dbConnected = false;
+    this.commands = loadCommands();
+    console.log(`Loaded ${this.commands.size} commands`);
     this.initDb();
   }
 

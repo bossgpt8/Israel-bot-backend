@@ -17,6 +17,7 @@ const CACHE_TTL = 60000; // 1 minute cache
 
 // Load all commands
 const commands = loadCommands();
+console.log(`Handler loaded ${commands.size} commands`);
 
 // Unwrap WhatsApp containers (ephemeral, view once, etc.)
 const getMessageContent = (msg) => {
