@@ -9,8 +9,13 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors());
+app.use(cors({ origin: "*" }));
 app.use(express.json());
+
+// Health check
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "Boss Bot Alive 🔥", time: new Date() });
+});
 
 // API Routes
 app.post('/link/qr', async (req, res) => {
