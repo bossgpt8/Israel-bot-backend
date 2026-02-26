@@ -1,5 +1,5 @@
 {
-  "name": "Knight Bot MINI",
+  "name": "Boss Bot MINI",
   "description": "WhatsApp MD bot (Baileys)",
   "repository": "",
   "keywords": ["whatsapp", "baileys", "bot", "node"],
@@ -10,9 +10,13 @@
   ],
   "env": {
     "SESSION_ID": {
-      "description": "KnightBot session string (e.g. KnightBot!<base64_compressed_data>)",
+      "description": "BossBot session string (e.g. BossBot!<base64_compressed_data>)",
       "required": false,
       "value": ""
+    },
+    "MONGODB_URI": {
+      "description": "MongoDB connection string for session storage",
+      "required": true
     }
   }
 }
