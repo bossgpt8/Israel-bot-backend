@@ -17,7 +17,61 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "Boss Bot Alive 🔥", time: new Date() });
 });
 
-// API Routes
+// Bot Status
+app.get("/api/bot/status", (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(400).json({ error: 'userId required' });
+  const status = botManager.getStatus(userId);
+  res.json({ 
+    status: status.status, 
+    qr: status.qr, 
+    pairingCode: status.pairingCode, 
+    uptime: status.uptime,
+    currentUserId: status.currentUserId 
+  });
+});
+
+// Bot Actions
+app.post("/api/bot/action", async (req, res) => {
+  const { action, phoneNumber, userId } = req.body;
+  if (!action) return res.status(400).json({ message: "Action is required" });
+
+  try {
+    switch (action) {
+      case "start":
+        if (phoneNumber) {
+          // If phone number provided, it's a pairing code request
+          await botManager.start(phoneNumber, true, userId || "default");
+          // Wait slightly for code generation
+          setTimeout(() => {
+            const status = botManager.getStatus(userId || "default");
+            res.json({ success: true, message: "Pairing code requested", code: status.pairingCode });
+          }, 5000);
+        } else {
+          // Normal QR start
+          await botManager.start(null, true, userId || "default");
+          res.json({ success: true, message: "Bot starting (QR mode)" });
+        }
+        break;
+      case "stop":
+      case "logout":
+        await botManager.logout(userId || "default");
+        res.json({ success: true, message: "Bot disconnected" });
+        break;
+      case "restart":
+        await botManager.logout(userId || "default");
+        await botManager.start(null, true, userId || "default");
+        res.json({ success: true, message: "Bot restarting" });
+        break;
+      default:
+        res.status(400).json({ message: "Invalid action" });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Compatibility routes for direct frontend calls if needed
 app.post('/link/qr', async (req, res) => {
   const { userId } = req.body;
   if (!userId) return res.status(400).json({ error: 'userId required' });
