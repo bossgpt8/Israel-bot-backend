@@ -19,54 +19,61 @@ app.get("/health", (req, res) => {
 
 // Bot Status
 app.get("/api/bot/status", (req, res) => {
-  const { userId } = req.query;
-  if (!userId) return res.status(400).json({ error: 'userId required' });
-  const status = botManager.getStatus(userId);
-  res.json({ 
-    status: status.status, 
-    qr: status.qr, 
-    pairingCode: status.pairingCode, 
-    uptime: status.uptime,
-    currentUserId: status.currentUserId 
-  });
+  try {
+    const { userId } = req.query;
+    const uid = userId || "default";
+    const status = botManager.getStatus(uid);
+    res.json({ 
+      status: status.status, 
+      qr: status.qr, 
+      pairingCode: status.pairingCode, 
+      uptime: status.uptime,
+      currentUserId: status.currentUserId 
+    });
+  } catch (err) {
+    console.error("Status error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Bot Actions
 app.post("/api/bot/action", async (req, res) => {
-  const { action, phoneNumber, userId } = req.body;
-  if (!action) return res.status(400).json({ message: "Action is required" });
-
   try {
+    const { action, phoneNumber, userId } = req.body;
+    if (!action) return res.status(400).json({ message: "Action is required" });
+    const uid = userId || "default";
+
     switch (action) {
       case "start":
         if (phoneNumber) {
           // If phone number provided, it's a pairing code request
-          await botManager.start(phoneNumber, true, userId || "default");
+          await botManager.start(phoneNumber, true, uid);
           // Wait slightly for code generation
           setTimeout(() => {
-            const status = botManager.getStatus(userId || "default");
+            const status = botManager.getStatus(uid);
             res.json({ success: true, message: "Pairing code requested", code: status.pairingCode });
           }, 5000);
         } else {
           // Normal QR start
-          await botManager.start(null, true, userId || "default");
+          await botManager.start(null, true, uid);
           res.json({ success: true, message: "Bot starting (QR mode)" });
         }
         break;
       case "stop":
       case "logout":
-        await botManager.logout(userId || "default");
+        await botManager.logout(uid);
         res.json({ success: true, message: "Bot disconnected" });
         break;
       case "restart":
-        await botManager.logout(userId || "default");
-        await botManager.start(null, true, userId || "default");
+        await botManager.logout(uid);
+        await botManager.start(null, true, uid);
         res.json({ success: true, message: "Bot restarting" });
         break;
       default:
         res.status(400).json({ message: "Invalid action" });
     }
   } catch (err) {
+    console.error("Action error:", err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -132,6 +139,35 @@ app.post('/disconnect', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Logs Stream
+app.get("/api/bot/logs/stream", (req, res) => {
+  const { userId } = req.query;
+  const uid = userId || "default";
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const sendLog = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  // Basic mock logs for now to satisfy the frontend
+  const interval = setInterval(() => {
+    sendLog({
+      timestamp: new Date().toISOString(),
+      level: 'info',
+      message: `System heart-beat for ${uid}`,
+      userId: uid
+    });
+  }, 10000);
+
+  req.on('close', () => {
+    clearInterval(interval);
+  });
 });
 
 const PORT = process.env.PORT || 3000;
