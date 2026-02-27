@@ -1,0 +1,9 @@
+node_modules
+dist
+.vercel
+replit.md
+.local
+.config
+.replit
+.gitignore
+.vercelignore
